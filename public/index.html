@@ -16,6 +16,7 @@
     <script defer src="/__/firebase/init.js"></script>
 
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+    <script src="https://d3js.org/d3-random.v1.min.js"></script>
 
     <style media="screen">
       body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
@@ -70,11 +71,18 @@
         //
         //
 
-        var deviceId = 'F0:26:AD:98:23:93',
+        var numberOfDevices = 1,
+        //   deviceId = 'F0:26:AD:98:24:09',
+          deviceIdPrefix = 'F0:26:AD:98:28:',
           typeIds = ['sensor1', 'sensor2'],
+          sessionId = Date.now(),
+          randomLatitude = d3.randomNormal(51.454444, 0.0159),
+          randomLongitude = d3.randomNormal(-2.584614, 0.020428),
           authorisationJwt = '',
-        //   baseUrl = 'http://localhost:8080',
-          baseUrl = 'http://ec2-35-166-177-195.us-west-2.compute.amazonaws.com:8080',
+          //baseUrl = 'https://api.dataunity.org',
+          //baseUrl = 'https://citizensensing.dataunity.org',
+          baseUrl = 'http://localhost:8080',
+          //baseUrl = 'http://ec2-35-166-177-195.us-west-2.compute.amazonaws.com:8080',
           authenticateUrl = baseUrl + '/citizen-sensing/authenticate-user-jwt?provider=firebase',
           dataPublishingUrl = baseUrl + '/citizen-sensing/device-data-publishing',
           createDeviceUrl = baseUrl + '/citizen-sensing/register-device-with-hardware-id',
@@ -108,7 +116,7 @@
               // The signed-in user info.
               var user = result.user;
               console.log("Got user", token);
-              $('#feedback').text('Logged in to Firebase. You can now authenticate the user with DU');
+              $('#feedback').append('Logged in to Firebase. You can now authenticate the user with DU');
             }).catch(function(error) {
               // Handle Errors here.
               var errorCode = error.code;
@@ -134,12 +142,12 @@
                 data: idToken,
                 success: function(data) {
                   console.log('Authorisation token: ', data);
-                  $('#feedback').text('Got authorisation token from DU. You can now create a device or post data');
+                  $('#feedback').append('Got authorisation token from DU. You can now create a device or post data');
                   authorisationJwt = data;
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                   console.log(textStatus, errorThrown);
-                  $('#feedback').text(textStatus + errorThrown);
+                  $('#feedback').append(textStatus + errorThrown);
                 }
               });
 
@@ -151,56 +159,80 @@
         });
 
         $('#btn-create-device').click(function () {
-          var data = {
-              deviceId: deviceId,
-              typeIds: typeIds
-            };
+            let i = 0;
+            for (i = 0; i < numberOfDevices; i++) {
+                let deviceId = deviceIdPrefix + i,
+                    data = {
+                        deviceId: deviceId,
+                        typeIds: typeIds
+                    };
 
-          $.ajax({
-            type: 'POST',
-            url: createDeviceUrl,
-            data: JSON.stringify(data),
-            headers: {
-              "Authorization": "Bearer " + authorisationJwt
-            },
-            contentType: "application/json",
-            success: function(data) {
-              console.log('Created device');
-              $('#feedback').text("Created device " + deviceId);
-            },
-            error: function (jqXHR, textStatus, errorThrown) {
-              console.log(textStatus, errorThrown);
-              $('#feedback').text(textStatus + errorThrown);
+                $.ajax({
+                  type: 'POST',
+                  url: createDeviceUrl,
+                  data: JSON.stringify(data),
+                  headers: {
+                    "Authorization": "Bearer " + authorisationJwt
+                  },
+                  contentType: "application/json",
+                  success: function(data) {
+                    console.log('Created device');
+                    $('#feedback').append("Created device " + deviceId);
+                  },
+                  error: function (jqXHR, textStatus, errorThrown) {
+                    console.log(textStatus, errorThrown);
+                    $('#feedback').append(textStatus + errorThrown);
+                  }
+                });
             }
-          });
+
         });
 
         $('#btn-post-data').click(function () {
-          var typeId = $('#choice-sensor').val(),
-              data = {
-                deviceId: deviceId,
-                typeId: typeId,
-                data: dataValue++,
-                timestamp: new Date()
-              };
+            let typeId = $('#choice-sensor').val(),
+                dataVal = dataValue++,
+                i = 0;
+            for (i = 0; i < numberOfDevices; i++) {
+                let deviceId = deviceIdPrefix + i,
+                    data = {
+                        deviceId: deviceId,
+                        typeId: typeId,
+                        data: dataVal,
+                        timestamp: new Date(),
+                        sessionId: sessionId,
+                        location: {
+                            altitude: 127.5999984741211,
+                            verticalAccuracy: 17.676000595092773,
+                            latitude: randomLatitude(),
+                            horizontalAccuracy: 17.676000595092773,
+                            speed: 0,
+                            android: {},
+                            longitude: randomLongitude(),
+                            timestamp: "2018-03-08T13:56:13.290Z",
+                            direction: 0
+                        }
+                    };
 
-          $.ajax({
-            type: 'POST',
-            url: dataPublishingUrl,
-            data: JSON.stringify(data),
-            headers: {
-              "Authorization": "Bearer " + authorisationJwt
-            },
-            success: function(data) {
-              console.log('Posted data');
-              $('#feedback').text('Posted data');
-            },
-            error: function (jqXHR, textStatus, errorThrown) {
-              console.log(textStatus, errorThrown);
-              $('#feedback').text(textStatus + errorThrown);
-            },
-            contentType: "application/json"
-          });
+                $.ajax({
+                    type: 'POST',
+                    url: dataPublishingUrl,
+                    data: JSON.stringify(data),
+                    headers: {
+                        "Authorization": "Bearer " + authorisationJwt
+                    },
+                    success: function(data) {
+                        console.log('Posted data');
+                        $('#feedback').append('Posted data');
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        console.log(textStatus, errorThrown);
+                        $('#feedback').append(textStatus + errorThrown);
+                    },
+                    contentType: "application/json"
+                });
+            }
+
+
         });
 
       });
